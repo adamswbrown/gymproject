@@ -4,22 +4,28 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { InstructorsService } from './instructors.service';
 
 @Controller('instructors')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InstructorsController {
+  constructor(private readonly instructorsService: InstructorsService) {}
+
   @Roles(UserRole.INSTRUCTOR)
   @Get('me/sessions')
   async getMySessions(@CurrentUser() user: any): Promise<{ ok: true; data: any[] }> {
-    // TODO: Implement instructor sessions listing
-    return { ok: true, data: [] };
+    const sessions = await this.instructorsService.getMySessions(user.id);
+    return { ok: true, data: sessions };
   }
 
   @Roles(UserRole.INSTRUCTOR)
   @Get('sessions/:id/roster')
-  async getSessionRoster(@Param('id') sessionId: string): Promise<{ ok: true; data: any }> {
-    // TODO: Implement session roster listing
-    return { ok: true, data: {} };
+  async getSessionRoster(
+    @CurrentUser() user: any,
+    @Param('id') sessionId: string,
+  ): Promise<{ ok: true; data: any }> {
+    const roster = await this.instructorsService.getSessionRoster(user.id, sessionId);
+    return { ok: true, data: roster };
   }
 }
 

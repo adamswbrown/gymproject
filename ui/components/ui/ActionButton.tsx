@@ -10,32 +10,47 @@ export function ActionButton({
   disabled,
   ...props 
 }: ActionButtonProps) {
-  const baseClasses = 'px-6 py-3 font-bold uppercase tracking-wide';
-  const variantClasses = variant === 'primary'
-    ? 'disabled:opacity-50 disabled:cursor-not-allowed'
-    : 'border disabled:opacity-50 disabled:cursor-not-allowed';
-  const rounding = 'rounded-sm';
+  const baseClasses = 'font-bold disabled:opacity-50 disabled:cursor-not-allowed';
   
   const style = variant === 'primary'
     ? {
-        backgroundColor: 'var(--color-accent-primary)',
-        color: 'var(--color-text-primary)',
+        backgroundColor: 'var(--color-button-primary-bg)',
+        color: 'var(--color-button-primary-text)',
         fontFamily: 'var(--font-body)',
+        fontSize: '16px',
+        fontWeight: '600',
+        paddingTop: '10px',
+        paddingBottom: '10px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderRadius: '4px',
+        textTransform: 'none',
+        border: 'none',
+        cursor: 'pointer',
       }
     : {
-        backgroundColor: 'var(--color-bg-secondary)',
-        color: 'var(--color-text-primary)',
-        borderColor: 'var(--color-border-subtle)',
+        backgroundColor: 'var(--color-button-secondary-bg)',
+        color: 'var(--color-button-secondary-text)',
         fontFamily: 'var(--font-body)',
+        fontSize: '16px',
+        fontWeight: '600',
+        paddingTop: '10px',
+        paddingBottom: '10px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderRadius: '4px',
+        textTransform: 'none',
+        border: 'none',
+        cursor: 'pointer',
       };
   
   const hoverStyle = variant === 'primary'
-    ? { backgroundColor: 'var(--color-accent-hover)' }
-    : { backgroundColor: 'var(--color-bg-primary)' };
+    ? { backgroundColor: 'var(--color-accent-hover)', opacity: 1 }
+    : { opacity: 0.85 };
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses} ${rounding} ${className}`}
+      className={`${baseClasses} ${className}`}
       style={style}
       onMouseEnter={(e) => {
         if (!disabled) {

@@ -26,10 +26,18 @@ export function useAuth() {
         try {
           const userData = await getMe();
           setUser(userData);
-        } catch (error) {
-          // Token invalid, clear it
-          localStorage.removeItem('auth_token');
-          setToken(null);
+        } catch (error: any) {
+          // Token invalid or API error, clear it
+          console.warn('Login Load failed:', error?.message || 'Failed to verify authentication');
+          
+          // Only clear token if it's an auth error (401/403), not network errors
+          if (error?.status === 401 || error?.status === 403) {
+            localStorage.removeItem('auth_token');
+            setToken(null);
+          } else {
+            // For network errors, keep token but log the issue
+            console.error('Network error during auth check. Token kept but user not loaded.');
+          }
         }
       }
       

@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -26,36 +27,92 @@ enum SessionStatus {
   CANCELLED
 }
 
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum CourseRegistrationStatus {
+  REGISTERED
+  CANCELLED
+  COMPLETED
+}
+
+enum FamilyRelationshipType {
+  PARENT
+  CHILD
+  GUARDIAN
+}
+
+enum FamilyManagerInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
 model User {
-  id            String          @id @default(uuid())
-  email         String          @unique
-  passwordHash  String          @map("password_hash")
-  role          UserRole
-  name          String?
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-  
-  instructorProfile InstructorProfile?
-  bookings         Booking[]
-  auditLogs        AuditLog[]
-  
-  @@map("users")
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole
+  name         String?
+  phone        String?
+  smsVerified  Boolean   @default(false) @map("sms_verified")
+  dateOfBirth  DateTime? @map("date_of_birth")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  instructorProfile        InstructorProfile?
+  memberProfile            MemberProfile?
+  bookings                 Booking[]
+  auditLogs                AuditLog[]
+  memberships              Membership[]
+  courseRegistrations      CourseRegistration[]
+  parentRelationships      FamilyRelationship[]      @relation("ParentUser")
+  childRelationships       FamilyRelationship[]      @relation("ChildUser")
+  ownedFamilyInvitations   FamilyManagerInvitation[] @relation("FamilyOwner")
+  managedFamilyInvitations FamilyManagerInvitation[] @relation("FamilyManager")
+  notificationPreferences  NotificationPreferences?
+  documents                Document[]
+  orders                   Order[]
+  paymentMethods           PaymentMethod[]
+  payments                 Payment[]
+
   @@index([email])
   @@index([role])
+  @@map("users")
 }
 
 model InstructorProfile {
-  id            String   @id @default(uuid())
-  userId        String   @unique @map("user_id")
-  specialization String?
-  phone         String?
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  specialization   String?
+  phone            String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  externalSource   String?  @map("external_source")
+  externalId       String?  @map("external_id")
+  externalMetadata Json?    @map("external_metadata")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   classSessions ClassSession[]
-  
+
+  @@index([externalSource, externalId])
   @@map("instructor_profiles")
 }
 
@@ -69,36 +126,45 @@ model ClassType {
   active                  Boolean  @default(true)
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
-  
+  externalSource          String?  @map("external_source")
+  externalId              String?  @map("external_id")
+  externalMetadata        Json?    @map("external_metadata")
+
   classSessions ClassSession[]
-  
-  @@map("class_types")
+
   @@index([active])
+  @@index([externalSource, externalId])
+  @@map("class_types")
 }
 
 model ClassSession {
-  id                String        @id @default(uuid())
-  classTypeId       String        @map("class_type_id")
-  instructorId      String        @map("instructor_id")
-  startsAt          DateTime      @map("starts_at")
-  endsAt            DateTime      @map("ends_at")
-  capacity          Int           @default(10)
-  location          String        @default("Main Studio")
-  status            SessionStatus  @default(SCHEDULED)
-  registrationOpens DateTime?     @map("registration_opens")
-  registrationCloses DateTime?    @map("registration_closes")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  
-  classType ClassType         @relation(fields: [classTypeId], references: [id], onDelete: Cascade)
-  instructor InstructorProfile @relation(fields: [instructorId], references: [id], onDelete: Restrict)
-  bookings   Booking[]
-  
-  @@map("class_sessions")
+  id                 String        @id @default(uuid())
+  classTypeId        String        @map("class_type_id")
+  instructorId       String        @map("instructor_id")
+  startsAt           DateTime      @map("starts_at")
+  endsAt             DateTime      @map("ends_at")
+  capacity           Int           @default(10)
+  location           String        @default("Main Studio")
+  status             SessionStatus @default(SCHEDULED)
+  registrationOpens  DateTime?     @map("registration_opens")
+  registrationCloses DateTime?     @map("registration_closes")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  externalSource     String?       @map("external_source")
+  externalId         String?       @map("external_id")
+  externalMetadata   Json?         @map("external_metadata")
+
+  classType      ClassType         @relation(fields: [classTypeId], references: [id], onDelete: Cascade)
+  instructor     InstructorProfile @relation(fields: [instructorId], references: [id], onDelete: Restrict)
+  bookings       Booking[]
+  courseSessions CourseSession[]
+
   @@index([startsAt])
   @@index([classTypeId])
   @@index([instructorId])
   @@index([status])
+  @@index([externalSource, externalId])
+  @@map("class_sessions")
 }
 
 model Booking {
@@ -108,31 +174,293 @@ model Booking {
   status      BookingStatus @default(CONFIRMED)
   bookedAt    DateTime      @default(now()) @map("booked_at")
   cancelledAt DateTime?     @map("cancelled_at")
-  
+
   session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("bookings")
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([sessionId, userId])
   @@index([userId])
   @@index([sessionId])
   @@index([status])
   @@index([bookedAt])
+  @@map("bookings")
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  action    String
-  entityType String? @map("entity_type")
-  entityId  String?  @map("entity_id")
-  details   Json?
-  createdAt DateTime @default(now()) @map("created_at")
-  
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("audit_logs")
+
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model MemberProfile {
+  id                           String   @id @default(uuid())
+  userId                       String   @unique @map("user_id")
+  gender                       String?
+  addressStreet                String?  @map("address_street")
+  addressCity                  String?  @map("address_city")
+  addressPostalCode            String?  @map("address_postal_code")
+  addressCountry               String?  @map("address_country")
+  emergencyContactName         String?  @map("emergency_contact_name")
+  emergencyContactPhone        String?  @map("emergency_contact_phone")
+  emergencyContactRelationship String?  @map("emergency_contact_relationship")
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("member_profiles")
+}
+
+model Membership {
+  id              String           @id @default(uuid())
+  userId          String           @map("user_id")
+  membershipType  String           @map("membership_type")
+  status          MembershipStatus @default(ACTIVE)
+  startDate       DateTime         @map("start_date")
+  endDate         DateTime?        @map("end_date")
+  autoRenew       Boolean          @default(false) @map("auto_renew")
+  paymentMethod   String?          @map("payment_method")
+  lastPaymentDate DateTime?        @map("last_payment_date")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
+  @@map("memberships")
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  registrations  CourseRegistration[]
+  courseSessions CourseSession[]
+
+  @@index([active])
+  @@index([startDate])
+  @@map("courses")
+}
+
+model CourseSession {
+  id        String   @id @default(uuid())
+  courseId  String   @map("course_id")
+  sessionId String   @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  course  Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, sessionId])
+  @@index([courseId])
+  @@index([sessionId])
+  @@map("course_sessions")
+}
+
+model CourseRegistration {
+  id           String                   @id @default(uuid())
+  userId       String                   @map("user_id")
+  courseId     String                   @map("course_id")
+  status       CourseRegistrationStatus @default(REGISTERED)
+  registeredAt DateTime                 @default(now()) @map("registered_at")
+  cancelledAt  DateTime?                @map("cancelled_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@map("course_registrations")
+}
+
+model FamilyRelationship {
+  id               String                 @id @default(uuid())
+  parentUserId     String                 @map("parent_user_id")
+  childUserId      String                 @map("child_user_id")
+  relationshipType FamilyRelationshipType @map("relationship_type")
+  verified         Boolean                @default(false)
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  parentUser User @relation("ParentUser", fields: [parentUserId], references: [id], onDelete: Cascade)
+  childUser  User @relation("ChildUser", fields: [childUserId], references: [id], onDelete: Cascade)
+
+  @@unique([parentUserId, childUserId])
+  @@index([parentUserId])
+  @@index([childUserId])
+  @@map("family_relationships")
+}
+
+model FamilyManagerInvitation {
+  id            String                        @id @default(uuid())
+  familyOwnerId String                        @map("family_owner_id")
+  invitedEmail  String                        @map("invited_email")
+  invitedUserId String?                       @map("invited_user_id")
+  token         String                        @unique
+  status        FamilyManagerInvitationStatus @default(PENDING)
+  expiresAt     DateTime                      @map("expires_at")
+  createdAt     DateTime                      @default(now()) @map("created_at")
+  acceptedAt    DateTime?                     @map("accepted_at")
+
+  familyOwner User? @relation("FamilyOwner", fields: [familyOwnerId], references: [id], onDelete: Cascade)
+  invitedUser User? @relation("FamilyManager", fields: [invitedUserId], references: [id], onDelete: SetNull)
+
+  @@index([familyOwnerId])
+  @@index([invitedEmail])
+  @@index([token])
+  @@index([status])
+  @@map("family_manager_invitations")
+}
+
+model NotificationPreferences {
+  id                       String   @id @default(uuid())
+  userId                   String   @unique @map("user_id")
+  receiptsEmail            Boolean  @default(true) @map("receipts_email")
+  waitlistEmail            Boolean  @default(true) @map("waitlist_email")
+  classNotificationsEmail  Boolean  @default(true) @map("class_notifications_email")
+  courseNotificationsEmail Boolean  @default(true) @map("course_notifications_email")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  type       String
+  url        String
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("documents")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  imageUrl    String?  @map("image_url")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  orderItems OrderItem[]
+
+  @@index([active])
+  @@map("products")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  totalAmount Decimal     @map("total_amount") @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  productId String   @map("product_id")
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model PaymentMethod {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  stripeId       String   @unique @map("stripe_id")
+  type           String
+  last4          String?
+  expiryMonth    Int?     @map("expiry_month")
+  expiryYear     Int?     @map("expiry_year")
+  cardholderName String?  @map("cardholder_name")
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  userId                String        @map("user_id")
+  paymentMethodId       String?       @map("payment_method_id")
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("GBP")
+  status                PaymentStatus @default(PENDING)
+  description           String?
+  createdAt             DateTime      @default(now()) @map("created_at")
+  completedAt           DateTime?     @map("completed_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  receipt       Receipt?
+
+  @@index([userId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  paymentId     String   @unique @map("payment_id")
+  transactionId String?  @map("transaction_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("receipts")
 }

@@ -10,19 +10,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
+      // Use replace instead of push to avoid history issues
       switch (user.role) {
         case 'MEMBER':
-          router.push('/dashboard/member/bookings');
+          router.replace('/dashboard/member/bookings');
           break;
         case 'INSTRUCTOR':
-          router.push('/dashboard/instructor/sessions');
+          router.replace('/dashboard/instructor/sessions');
           break;
         case 'ADMIN':
-          router.push('/dashboard/admin/class-types');
+          router.replace('/dashboard/admin/class-types');
           break;
         default:
-          router.push('/schedule');
+          // Unknown role - redirect to login to re-authenticate
+          router.replace('/login');
       }
+    } else if (!isLoading && !user) {
+      router.replace('/login');
     }
   }, [user, isLoading, router]);
 

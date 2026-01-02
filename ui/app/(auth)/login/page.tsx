@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { Navbar } from '@/components/layout/Navbar';
@@ -10,7 +10,6 @@ import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isAuthenticated, isLoading } = useAuth();
   const [email, setEmail] = useState('');
@@ -18,25 +17,21 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      const redirect = searchParams.get('redirect') || '/dashboard';
-      router.push(redirect);
-    }
-  }, [isAuthenticated, isLoading, router, searchParams]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
     try {
-      await login(email, password);
+      const response = await login(email, password);
+      // Store token in cookie for middleware (already done in login function)
+      // Use router.push instead of window.location for better Next.js integration
       const redirect = searchParams.get('redirect') || '/dashboard';
-      router.push(redirect);
+      // Small delay to ensure cookie is set
+      await new Promise(resolve => setTimeout(resolve, 150));
+      window.location.href = redirect;
     } catch (err: any) {
       setError(err.message || 'Login failed');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -44,13 +39,19 @@ function LoginForm() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>Loading...</div>
+        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>Loading...</div>
       </div>
     );
   }
 
+  // If already authenticated, show a message but don't auto-redirect
+  // The middleware or dashboard will handle the redirect
   if (isAuthenticated) {
-    return null; // Will redirect
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>You are already logged in. Redirecting...</div>
+      </div>
+    );
   }
 
   return (
@@ -62,17 +63,17 @@ function LoginForm() {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+              <div className="p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm uppercase mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+              <label className="block font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
                 Email
               </label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -82,6 +83,8 @@ function LoginForm() {
                   border: '1px solid var(--color-border-subtle)',
                   color: 'var(--color-text-primary)',
                   fontFamily: 'var(--font-body)',
+                  fontSize: 'var(--font-size-body)',
+                  lineHeight: 'var(--line-height-body)',
                 }}
                 onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
                 onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
@@ -89,7 +92,7 @@ function LoginForm() {
             </div>
 
             <div>
-              <label className="block text-sm uppercase mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+              <label className="block font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
                 Password
               </label>
               <input
@@ -103,6 +106,8 @@ function LoginForm() {
                   border: '1px solid var(--color-border-subtle)',
                   color: 'var(--color-text-primary)',
                   fontFamily: 'var(--font-body)',
+                  fontSize: 'var(--font-size-body)',
+                  lineHeight: 'var(--line-height-body)',
                 }}
                 onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
                 onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
@@ -117,7 +122,7 @@ function LoginForm() {
               {submitting ? 'Logging In...' : 'Log In'}
             </ActionButton>
 
-            <div className="text-center" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+            <div className="text-center" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
               Don't have an account?{' '}
               <Link href="/register" style={{ color: 'var(--color-accent-primary)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-hover)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-accent-primary)'}>
                 Register
@@ -135,11 +140,10 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>Loading...</div>
+        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>Loading...</div>
       </div>
     }>
       <LoginForm />
     </Suspense>
   );
 }
-

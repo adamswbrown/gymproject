@@ -12,10 +12,11 @@ export function Section({ children, title, className = '' }: SectionProps) {
     >
       {title && (
         <h2
-          className="text-2xl font-bold uppercase mb-6"
+          className="text-2xl font-bold mb-6"
           style={{
             fontFamily: 'var(--font-heading)',
             color: 'var(--color-text-primary)',
+            letterSpacing: '0.02em',
           }}
         >
           {title}

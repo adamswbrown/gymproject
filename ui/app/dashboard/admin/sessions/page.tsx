@@ -1,29 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Section } from '@/components/ui/Section';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { Modal } from '@/components/ui/Modal';
+import { ModalFooter } from '@/components/ui/ModalFooter';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DismissibleError } from '@/components/ui/DismissibleError';
+import { useRequireRole } from '@/hooks/useRequireRole';
 import {
-  getSessions,
+  getAdminSessions,
   createSession,
   updateSession,
   deleteSession,
-  getClassTypes,
-  getInstructors,
+  getAdminClassTypes,
+  getAdminInstructors,
   type Session,
   type CreateSessionDto,
   type ClassType,
-  type Instructor,
+  type AdminInstructor,
 } from '@/lib/api';
 
 export default function AdminSessionsPage() {
+  const pathname = usePathname();
+  const { hasAccess, isLoading: roleLoading, accessDenied } = useRequireRole('ADMIN');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [instructors, setInstructors] = useState<AdminInstructor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'upcoming'>('upcoming');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'SCHEDULED' | 'CANCELLED'>('all');
   const [formData, setFormData] = useState<CreateSessionDto>({
     classTypeId: '',
     instructorId: '',
@@ -37,17 +49,19 @@ export default function AdminSessionsPage() {
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (hasAccess) {
+      loadData();
+    }
+  }, [hasAccess]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
       const [sessionsData, classTypesData, instructorsData] = await Promise.all([
-        getSessions(),
-        getClassTypes(),
-        getInstructors(),
+        getAdminSessions(),
+        getAdminClassTypes(),
+        getAdminInstructors(),
       ]);
       setSessions(sessionsData);
       setClassTypes(classTypesData);
@@ -64,6 +78,7 @@ export default function AdminSessionsPage() {
     try {
       setError(null);
       await createSession(formData);
+      setIsCreateModalOpen(false);
       setFormData({
         classTypeId: '',
         instructorId: '',
@@ -81,21 +96,43 @@ export default function AdminSessionsPage() {
     }
   };
 
-  const handleUpdate = async (id: string, data: CreateSessionDto) => {
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
     try {
       setError(null);
-      await updateSession(id, data);
+      await updateSession(editingId, formData);
       setEditingId(null);
+      setFormData({
+        classTypeId: '',
+        instructorId: '',
+        startsAt: '',
+        endsAt: '',
+        capacity: 10,
+        location: 'Main Studio',
+        status: 'SCHEDULED',
+        registrationOpens: undefined,
+        registrationCloses: undefined,
+      });
       loadData();
     } catch (err: any) {
       setError(err.message || 'Failed to update session');
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (session: Session) => {
+    const sessionDate = new Date(session.startsAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    const confirmMessage = `Are you sure you want to delete the session "${session.classType?.name || 'Unknown'}" on ${sessionDate}? All bookings for this session will be cancelled.`;
+    if (!confirm(confirmMessage)) return;
     try {
       setError(null);
-      await deleteSession(id);
+      await deleteSession(session.id);
       loadData();
     } catch (err: any) {
       setError(err.message || 'Failed to delete session');
@@ -132,11 +169,27 @@ export default function AdminSessionsPage() {
     });
   };
 
+  const openCreateModal = () => {
+    setFormData({
+      classTypeId: '',
+      instructorId: '',
+      startsAt: '',
+      endsAt: '',
+      capacity: 10,
+      location: 'Main Studio',
+      status: 'SCHEDULED',
+      registrationOpens: undefined,
+      registrationCloses: undefined,
+    });
+    setIsCreateModalOpen(true);
+  };
+
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -155,678 +208,679 @@ export default function AdminSessionsPage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
     });
   };
 
-  return (
-    <div>
-      <PageHeader title="SESSIONS" />
+  // Filter sessions
+  const filteredSessions = useMemo(() => {
+    const now = new Date();
+    return sessions.filter((session) => {
+      const sessionDate = new Date(session.startsAt);
+      
+      // Date filter
+      let matchesDate = true;
+      if (dateFilter === 'today') {
+        const today = new Date();
+        matchesDate = sessionDate.toDateString() === today.toDateString();
+      } else if (dateFilter === 'week') {
+        const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        matchesDate = sessionDate >= now && sessionDate <= weekFromNow;
+      } else if (dateFilter === 'month') {
+        const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        matchesDate = sessionDate >= now && sessionDate <= monthFromNow;
+      } else if (dateFilter === 'upcoming') {
+        matchesDate = sessionDate >= now;
+      }
 
-      {/* Error State */}
-      {error && (
-        <div
-          className="p-4 mb-6 border"
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
+
+      return matchesDate && matchesStatus;
+    }).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  }, [sessions, dateFilter, statusFilter]);
+
+  const renderForm = (onSubmit: (e: React.FormEvent) => void, submitLabel: string) => (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Class Type *
+          </label>
+          <select
+            required
+            value={formData.classTypeId}
+            onChange={(e) => setFormData({ ...formData, classTypeId: e.target.value })}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          >
+            <option value="">Select class type</option>
+            {classTypes.map((ct) => (
+              <option key={ct.id} value={ct.id}>
+                {ct.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Instructor *
+          </label>
+          <select
+            required
+            value={formData.instructorId}
+            onChange={(e) => setFormData({ ...formData, instructorId: e.target.value })}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          >
+            <option value="">Select instructor</option>
+            {instructors.map((instructor) => (
+              <option key={instructor.id} value={instructor.id}>
+                {instructor.name || instructor.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Starts At (UTC) *
+          </label>
+          <input
+            type="datetime-local"
+            required
+            value={formData.startsAt}
+            onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Ends At (UTC) *
+          </label>
+          <input
+            type="datetime-local"
+            required
+            value={formData.endsAt}
+            onChange={(e) => {
+              const newEndsAt = e.target.value;
+              // Validate that end time is after start time
+              if (formData.startsAt && newEndsAt && newEndsAt <= formData.startsAt) {
+                // Don't update if invalid, or set error
+                return;
+              }
+              setFormData({ ...formData, endsAt: newEndsAt });
+            }}
+            min={formData.startsAt || undefined}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Capacity *
+          </label>
+          <input
+            type="number"
+            required
+            min="1"
+            max="1000"
+            value={formData.capacity}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 0;
+              // Validate capacity is positive and reasonable
+              if (value < 1) return;
+              if (value > 1000) return; // Reasonable max
+              setFormData({ ...formData, capacity: value });
+            }}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Location *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Registration Opens (UTC)
+          </label>
+          <input
+            type="datetime-local"
+            value={formData.registrationOpens || ''}
+            onChange={(e) => setFormData({ ...formData, registrationOpens: e.target.value || undefined })}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium mb-2"
+            style={{
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Registration Closes (UTC)
+          </label>
+          <input
+            type="datetime-local"
+            value={formData.registrationCloses || ''}
+            onChange={(e) => {
+              const newCloses = e.target.value || undefined;
+              // Validate that registration closes is after opens (if both set)
+              if (formData.registrationOpens && newCloses && newCloses <= formData.registrationOpens) {
+                return; // Don't update if invalid
+              }
+              // Validate that registration closes is before session starts
+              if (formData.startsAt && newCloses && newCloses >= formData.startsAt) {
+                return; // Don't update if invalid
+              }
+              setFormData({ ...formData, registrationCloses: newCloses });
+            }}
+            min={formData.registrationOpens || formData.startsAt || undefined}
+            max={formData.startsAt || undefined}
+            className="w-full px-4 py-2 focus:outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-body)',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+          />
+        </div>
+      </div>
+      <div>
+        <label
+          className="block text-sm uppercase mb-2"
           style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderColor: 'var(--color-accent-primary)',
-            color: 'var(--color-accent-primary)',
+            color: 'var(--color-text-muted)',
             fontFamily: 'var(--font-body)',
           }}
         >
-          {error}
+          Status *
+        </label>
+        <select
+          required
+          value={formData.status}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value as 'SCHEDULED' | 'CANCELLED' })}
+          className="w-full px-4 py-2 focus:outline-none"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            border: '1px solid var(--color-border-subtle)',
+            color: 'var(--color-text-primary)',
+            fontFamily: 'var(--font-body)',
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+          onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+        >
+          <option value="SCHEDULED">SCHEDULED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+      </div>
+      <ModalFooter>
+        <ActionButton type="button" variant="secondary" onClick={() => {
+          setIsCreateModalOpen(false);
+          cancelEdit();
+        }}>
+          Cancel
+        </ActionButton>
+        <ActionButton type="submit">{submitLabel}</ActionButton>
+      </ModalFooter>
+    </form>
+  );
+
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    if (accessDenied) {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+          <div style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+            Access Denied. You must be an administrator to view this page. Redirecting...
+          </div>
         </div>
+      );
+    }
+    return null; // Redirect is handled by useRequireRole
+  }
+
+  return (
+    <div>
+      <PageHeader title="ADMIN" />
+
+      {/* Admin Navigation Tabs */}
+      <div className="mb-6 flex gap-4 border-b" style={{ borderColor: 'var(--color-border-subtle)' }}>
+        <Link
+          href="/dashboard/admin/class-types"
+          className="pb-4 px-2 text-sm font-semibold transition-colors"
+          style={{
+            color: pathname === '/dashboard/admin/class-types' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)',
+            fontFamily: 'var(--font-body)',
+            borderBottom: pathname === '/dashboard/admin/class-types' ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
+          }}
+        >
+          Class Types
+        </Link>
+        <Link
+          href="/dashboard/admin/sessions"
+          className="pb-4 px-2 text-sm font-semibold transition-colors"
+          style={{
+            color: pathname === '/dashboard/admin/sessions' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)',
+            fontFamily: 'var(--font-body)',
+            borderBottom: pathname === '/dashboard/admin/sessions' ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
+          }}
+        >
+          Sessions
+        </Link>
+        <Link
+          href="/dashboard/admin/instructors"
+          className="pb-4 px-2 text-sm font-semibold transition-colors"
+          style={{
+            color: pathname === '/dashboard/admin/instructors' ? 'var(--color-accent-primary)' : 'var(--color-text-muted)',
+            fontFamily: 'var(--font-body)',
+            borderBottom: pathname === '/dashboard/admin/instructors' ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
+          }}
+        >
+          Instructors
+        </Link>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <DismissibleError
+          message={error}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       {/* Loading State */}
       {loading && (
         <div
-          className="py-12"
+          className="text-center py-12"
           style={{
             color: 'var(--color-text-muted)',
             fontFamily: 'var(--font-body)',
             opacity: 0.7,
           }}
         >
-          Loading sessions…
+          Loading …
         </div>
       )}
 
       {!loading && (
         <Section>
-          {/* Create Form */}
-          <form onSubmit={handleCreate} className="mb-8 pb-8 border-b" style={{ borderColor: 'var(--color-border-subtle)' }}>
-            <h2
-              className="text-xl font-bold uppercase mb-4"
+          {/* Header with Create Button and Filters */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex-1 w-full sm:w-auto">
+              <ActionButton onClick={openCreateModal}>
+                Create Session
+              </ActionButton>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
+                className="px-4 py-2 focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-primary)',
+                  fontFamily: 'var(--font-body)',
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="upcoming">Upcoming</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                className="px-4 py-2 focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  color: 'var(--color-text-primary)',
+                  fontFamily: 'var(--font-body)',
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+              >
+                <option value="all">All Status</option>
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Sessions Table */}
+          {filteredSessions.length === 0 ? (
+            <div
+              className="text-center py-12"
               style={{
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--color-text-primary)',
+                color: 'var(--color-text-muted)',
+                fontFamily: 'var(--font-body)',
+                opacity: 0.7,
               }}
             >
-              CREATE SESSION
-            </h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Class Type *
-                  </label>
-                  <select
-                    required
-                    value={formData.classTypeId}
-                    onChange={(e) => setFormData({ ...formData, classTypeId: e.target.value })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  >
-                    <option value="">Select class type</option>
-                    {classTypes.map((ct) => (
-                      <option key={ct.id} value={ct.id}>
-                        {ct.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Instructor *
-                  </label>
-                  <select
-                    required
-                    value={formData.instructorId}
-                    onChange={(e) => setFormData({ ...formData, instructorId: e.target.value })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  >
-                    <option value="">Select instructor</option>
-                    {instructors.map((instructor) => (
-                      <option key={instructor.id} value={instructor.id}>
-                        {instructor.user.name || instructor.user.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Starts At (UTC) *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.startsAt}
-                    onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Ends At (UTC) *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.endsAt}
-                    onChange={(e) => setFormData({ ...formData, endsAt: e.target.value })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Capacity *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Location *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Registration Opens (UTC)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.registrationOpens || ''}
-                    onChange={(e) => setFormData({ ...formData, registrationOpens: e.target.value || undefined })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block text-sm uppercase mb-2"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    Registration Closes (UTC)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.registrationCloses || ''}
-                    onChange={(e) => setFormData({ ...formData, registrationCloses: e.target.value || undefined })}
-                    className="w-full px-4 py-2 focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border-subtle)',
-                      color: 'var(--color-text-primary)',
-                      fontFamily: 'var(--font-body)',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                  />
-                </div>
-              </div>
-              <div>
-                <label
-                  className="block text-sm uppercase mb-2"
-                  style={{
-                    color: 'var(--color-text-muted)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                >
-                  Status *
-                </label>
-                <select
-                  required
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'SCHEDULED' | 'CANCELLED' })}
-                  className="w-full px-4 py-2 focus:outline-none"
-                  style={{
-                    backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-subtle)',
-                    color: 'var(--color-text-primary)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                >
-                  <option value="SCHEDULED">SCHEDULED</option>
-                  <option value="CANCELLED">CANCELLED</option>
-                </select>
-              </div>
-              <ActionButton type="submit">Create</ActionButton>
+              No sessions found. Create your first session to get started.
             </div>
-          </form>
-
-          {/* Sessions List */}
-          <div className="space-y-6">
-            {sessions.length === 0 ? (
-              <div
-                style={{
-                  color: 'var(--color-text-muted)',
-                  fontFamily: 'var(--font-body)',
-                  opacity: 0.7,
-                }}
-              >
-                No sessions scheduled.
-              </div>
-            ) : (
-              sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="pb-6 border-b"
-                  style={{ borderColor: 'var(--color-border-subtle)' }}
-                >
-                  {editingId === session.id ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleUpdate(session.id, formData);
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border-subtle)' }}>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
                       }}
-                      className="space-y-4"
                     >
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Class Type *
-                          </label>
-                          <select
-                            required
-                            value={formData.classTypeId}
-                            onChange={(e) => setFormData({ ...formData, classTypeId: e.target.value })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          >
-                            <option value="">Select class type</option>
-                            {classTypes.map((ct) => (
-                              <option key={ct.id} value={ct.id}>
-                                {ct.name}
-                              </option>
-                            ))}
-                          </select>
+                      Class
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Date & Time
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Instructor
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Location
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Capacity
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      className="text-right py-3 px-4 text-sm font-semibold"
+                      style={{
+                        color: 'var(--color-text-muted)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSessions.map((session, index) => (
+                    <tr
+                      key={session.id}
+                      style={{
+                        borderBottom: index < filteredSessions.length - 1 ? '1px solid var(--color-border-subtle)' : 'none',
+                      }}
+                    >
+                      <td className="py-3 px-4">
+                        <div
+                          className="font-bold"
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {session.classType?.name || 'Unknown'}
                         </div>
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Instructor *
-                          </label>
-                          <select
-                            required
-                            value={formData.instructorId}
-                            onChange={(e) => setFormData({ ...formData, instructorId: e.target.value })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          >
-                            <option value="">Select instructor</option>
-                            {instructors.map((instructor) => (
-                              <option key={instructor.id} value={instructor.id}>
-                                {instructor.user.name || instructor.user.email}
-                              </option>
-                            ))}
-                          </select>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {formatDate(session.startsAt)}
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Starts At (UTC) *
-                          </label>
-                          <input
-                            type="datetime-local"
-                            required
-                            value={formData.startsAt}
-                            onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Ends At (UTC) *
-                          </label>
-                          <input
-                            type="datetime-local"
-                            required
-                            value={formData.endsAt}
-                            onChange={(e) => setFormData({ ...formData, endsAt: e.target.value })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Capacity *
-                          </label>
-                          <input
-                            type="number"
-                            required
-                            min="1"
-                            value={formData.capacity}
-                            onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Location *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.location}
-                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Registration Opens (UTC)
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={formData.registrationOpens || ''}
-                            onChange={(e) => setFormData({ ...formData, registrationOpens: e.target.value || undefined })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                        <div>
-                          <label
-                            className="block text-sm uppercase mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            Registration Closes (UTC)
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={formData.registrationCloses || ''}
-                            onChange={(e) => setFormData({ ...formData, registrationCloses: e.target.value || undefined })}
-                            className="w-full px-4 py-2 focus:outline-none"
-                            style={{
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              color: 'var(--color-text-primary)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label
-                          className="block text-sm uppercase mb-2"
+                        <div
+                          className="text-sm"
                           style={{
                             color: 'var(--color-text-muted)',
                             fontFamily: 'var(--font-body)',
                           }}
                         >
-                          Status *
-                        </label>
-                        <select
-                          required
-                          value={formData.status}
-                          onChange={(e) => setFormData({ ...formData, status: e.target.value as 'SCHEDULED' | 'CANCELLED' })}
-                          className="w-full px-4 py-2 focus:outline-none"
+                          {formatTime(session.startsAt)} - {formatTime(session.endsAt)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div
                           style={{
-                            backgroundColor: 'var(--color-bg-primary)',
-                            border: '1px solid var(--color-border-subtle)',
                             color: 'var(--color-text-primary)',
                             fontFamily: 'var(--font-body)',
                           }}
-                          onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                          onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
                         >
-                          <option value="SCHEDULED">SCHEDULED</option>
-                          <option value="CANCELLED">CANCELLED</option>
-                        </select>
-                      </div>
-                      <div className="flex gap-4">
-                        <ActionButton type="submit">Save</ActionButton>
-                        <ActionButton type="button" variant="secondary" onClick={cancelEdit}>
-                          Cancel
-                        </ActionButton>
-                      </div>
-                    </form>
-                  ) : (
-                    <>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3
-                            className="text-lg font-bold mb-2"
-                            style={{
-                              fontFamily: 'var(--font-body)',
-                              color: 'var(--color-text-primary)',
-                            }}
-                          >
-                            {session.classType?.name || 'Unknown Class'}
-                          </h3>
-                          <div
-                            className="text-sm mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            {formatDate(session.startsAt)} {formatTime(session.startsAt)} - {formatTime(session.endsAt)} •{' '}
-                            {session.instructor?.user?.name || 'Unknown Instructor'} • capacity {session.capacity} • {session.status}
-                          </div>
-                          <div
-                            className="text-sm mb-2"
-                            style={{
-                              color: 'var(--color-text-muted)',
-                              fontFamily: 'var(--font-body)',
-                            }}
-                          >
-                            {session.location}
-                          </div>
-                          {(session.registrationOpens || session.registrationCloses) && (
-                            <div
-                              className="text-sm"
-                              style={{
-                                color: 'var(--color-text-muted)',
-                                fontFamily: 'var(--font-body)',
-                              }}
-                            >
-                              Registration: {session.registrationOpens ? formatDateTime(session.registrationOpens) : 'open'} -{' '}
-                              {session.registrationCloses ? formatDateTime(session.registrationCloses) : 'open'}
-                            </div>
-                          )}
+                          {session.instructor?.user?.name || 'Unknown'}
                         </div>
-                        <div className="flex gap-2">
-                          <ActionButton
-                            type="button"
-                            variant="secondary"
+                      </td>
+                      <td className="py-3 px-4">
+                        <div
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {session.location}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {session.capacity}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge status={session.status === 'SCHEDULED' ? 'scheduled' : 'cancelled'} />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
                             onClick={() => startEdit(session)}
-                            className="text-sm py-2 px-4"
+                            className="p-2 hover:opacity-70 transition-opacity"
+                            style={{ color: 'var(--color-text-muted)' }}
+                            aria-label="Edit"
                           >
-                            Edit
-                          </ActionButton>
-                          <ActionButton
-                            type="button"
-                            variant="secondary"
-                            onClick={() => handleDelete(session.id)}
-                            className="text-sm py-2 px-4"
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(session)}
+                            className="p-2 hover:opacity-70 transition-opacity"
+                            style={{ color: '#ef4444' }}
+                            aria-label="Delete"
                           >
-                            Delete
-                          </ActionButton>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Section>
       )}
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          cancelEdit();
+        }}
+        title="Create Session"
+        size="large"
+      >
+        {renderForm(handleCreate, 'Create')}
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={editingId !== null}
+        onClose={cancelEdit}
+        title="Edit Session"
+        size="large"
+      >
+        {editingId && renderForm(handleUpdate, 'Save')}
+      </Modal>
     </div>
   );
 }

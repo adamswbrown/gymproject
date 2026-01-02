@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { DismissibleError } from '@/components/ui/DismissibleError';
+import { DismissibleSuccess } from '@/components/ui/DismissibleSuccess';
 import { getMyBookings, cancelBooking } from '@/lib/api';
 import type { BookingResponse } from '@/lib/api';
 
@@ -10,6 +12,8 @@ export default function MemberBookingsPage() {
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadBookings();
@@ -34,10 +38,22 @@ export default function MemberBookingsPage() {
     }
 
     try {
+      setCancelError(null);
+      setSuccessMessage(null);
+      
+      // Optimistic update: remove booking from list immediately
+      setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId));
+      
       await cancelBooking(bookingId);
-      loadBookings(); // Reload to update list
+      setSuccessMessage('Booking cancelled successfully');
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
+      // Reload to get accurate data
+      loadBookings();
     } catch (err: any) {
-      alert(err.message || 'Failed to cancel booking');
+      // Revert optimistic update on error
+      loadBookings();
+      setCancelError(err.message || 'Failed to cancel booking');
     }
   };
 
@@ -70,24 +86,51 @@ export default function MemberBookingsPage() {
       <PageHeader title="My Bookings" />
       
         {error && (
-          <div className="mb-6 p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
-          {error}
-        </div>
-      )}
+          <DismissibleError
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        )}
+
+        {cancelError && (
+          <DismissibleError
+            message={cancelError}
+            onDismiss={() => setCancelError(null)}
+          />
+        )}
+
+        {successMessage && (
+          <DismissibleSuccess
+            message={successMessage}
+            onDismiss={() => setSuccessMessage(null)}
+          />
+        )}
 
         {loading && (
-          <div className="text-center py-12" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
-          Loading bookings...
-        </div>
-      )}
+          <div 
+            className="text-center py-12" 
+            style={{ 
+              color: 'var(--color-text-muted)', 
+              fontFamily: 'var(--font-body)',
+              opacity: 0.7,
+            }}
+          >
+            Loading …
+          </div>
+        )}
 
       {!loading && !error && (
         <div className="space-y-4">
           {bookings.length === 0 ? (
-            <div className="p-8 text-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <p className="text-lg" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
-                You have no bookings yet.
-              </p>
+            <div 
+              className="text-center py-12" 
+              style={{ 
+                color: 'var(--color-text-muted)', 
+                fontFamily: 'var(--font-body)',
+                opacity: 0.7,
+              }}
+            >
+              No bookings.
             </div>
           ) : (
             bookings.map((booking) => (
@@ -98,7 +141,7 @@ export default function MemberBookingsPage() {
               >
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold uppercase mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
+                    <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>
                       {booking.session?.classType?.name || 'Class'}
                     </h3>
                     <div className="flex flex-wrap gap-4 mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>

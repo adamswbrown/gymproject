@@ -66,7 +66,7 @@ function RegisterForm() {
             )}
 
             <div>
-              <label className="block text-sm uppercase mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                 Email
               </label>
               <input
@@ -87,7 +87,7 @@ function RegisterForm() {
             </div>
 
             <div>
-              <label className="block text-sm uppercase mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                 Password (min 8 characters)
               </label>
               <input
@@ -109,7 +109,7 @@ function RegisterForm() {
             </div>
 
             <div>
-              <label className="block text-sm uppercase mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                 Name (optional)
               </label>
               <input

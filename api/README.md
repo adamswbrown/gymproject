@@ -400,6 +400,46 @@ if (session.startsAt < now) { ... }
 3. Includes capacity information (total, confirmed, remaining)
 4. Indicates registration status
 
+## Test Users
+
+The following test accounts are available for development and testing:
+
+### Member Account
+
+- **Email:** `member@example.com`
+- **Password:** `password123`
+- **Name:** Test Member
+- **Role:** MEMBER
+- **User ID:** `83e0fc9b-cd5e-414e-8c02-d4a9e894e5db`
+
+**Usage:**
+- Use this account to test booking functionality
+- Log in via the UI at `http://localhost:3000/login` or via API
+- Can book and cancel classes
+- Can view personal bookings
+
+### Creating Additional Test Users
+
+Create new member accounts via the registration endpoint:
+
+```bash
+curl -X POST http://localhost:3001/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newmember@example.com",
+    "password": "password123",
+    "name": "New Member"
+  }'
+```
+
+**Note:** All users registered via `/auth/register` are automatically assigned the `MEMBER` role. To create ADMIN or INSTRUCTOR accounts, update the user role directly in the database using Prisma Studio or SQL.
+
+### User Roles
+
+- **MEMBER** - Can view schedules and book/cancel classes
+- **INSTRUCTOR** - Can view assigned sessions and rosters  
+- **ADMIN** - Full access to all endpoints and administrative functions
+
 ## Testing
 
 ### Unit Tests
