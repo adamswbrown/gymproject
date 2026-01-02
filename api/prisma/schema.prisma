@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserRole {
+  ADMIN
+  INSTRUCTOR
+  MEMBER
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String          @map("password_hash")
+  role          UserRole
+  name          String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  
+  instructorProfile InstructorProfile?
+  bookings         Booking[]
+  auditLogs        AuditLog[]
+  
+  @@map("users")
+  @@index([email])
+  @@index([role])
+}
+
+model InstructorProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  specialization String?
+  phone         String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classSessions ClassSession[]
+  
+  @@map("instructor_profiles")
+}
+
+model ClassType {
+  id                      String   @id @default(uuid())
+  name                    String
+  description             String?
+  durationMinutes         Int      @default(25) @map("duration_minutes")
+  defaultCapacity         Int      @default(10) @map("default_capacity")
+  cancellationCutoffHours Int?     @map("cancellation_cutoff_hours")
+  active                  Boolean  @default(true)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  
+  classSessions ClassSession[]
+  
+  @@map("class_types")
+  @@index([active])
+}
+
+model ClassSession {
+  id                String        @id @default(uuid())
+  classTypeId       String        @map("class_type_id")
+  instructorId      String        @map("instructor_id")
+  startsAt          DateTime      @map("starts_at")
+  endsAt            DateTime      @map("ends_at")
+  capacity          Int           @default(10)
+  location          String        @default("Main Studio")
+  status            SessionStatus  @default(SCHEDULED)
+  registrationOpens DateTime?     @map("registration_opens")
+  registrationCloses DateTime?    @map("registration_closes")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  
+  classType ClassType         @relation(fields: [classTypeId], references: [id], onDelete: Cascade)
+  instructor InstructorProfile @relation(fields: [instructorId], references: [id], onDelete: Restrict)
+  bookings   Booking[]
+  
+  @@map("class_sessions")
+  @@index([startsAt])
+  @@index([classTypeId])
+  @@index([instructorId])
+  @@index([status])
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  sessionId   String        @map("session_id")
+  userId      String        @map("user_id")
+  status      BookingStatus @default(CONFIRMED)
+  bookedAt    DateTime      @default(now()) @map("booked_at")
+  cancelledAt DateTime?     @map("cancelled_at")
+  
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("bookings")
+  @@unique([sessionId, userId])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([status])
+  @@index([bookedAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String
+  entityType String? @map("entity_type")
+  entityId  String?  @map("entity_id")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
