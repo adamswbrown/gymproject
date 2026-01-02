@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { DismissibleError } from '@/components/ui/DismissibleError';
 import { getUpcomingRegistrations, cancelBooking } from '@/lib/api';
 import type { RegistrationResponse } from '@/lib/api';
 
@@ -85,17 +86,10 @@ export default function MemberUpcomingPage() {
       </div>
 
       {error && (
-        <div
-          className="mb-6 p-4"
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-accent-primary)',
-            color: 'var(--color-accent-primary)',
-            fontFamily: 'var(--font-body)',
-          }}
-        >
-          {error}
-        </div>
+        <DismissibleError
+          message={error}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       <div className="mb-4" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-primary)' }}>
@@ -141,7 +135,11 @@ export default function MemberUpcomingPage() {
                   <div className="flex gap-2">
                     <ActionButton
                       variant="secondary"
-                      onClick={() => window.location.href = `/schedule?e=${reg.sessionId}&date=${reg.session.startsAt.split('T')[0]}`}
+                      onClick={() => {
+                        if (reg.session) {
+                          window.location.href = `/schedule?e=${reg.sessionId}&date=${reg.session.startsAt.split('T')[0]}`;
+                        }
+                      }}
                     >
                       Details
                     </ActionButton>

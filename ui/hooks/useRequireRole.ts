@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './useAuth';
-import { UserRole } from '@prisma/client';
+
+type UserRole = 'MEMBER' | 'ADMIN' | 'INSTRUCTOR';
 
 export function useRequireRole(requiredRole: UserRole) {
   const { user, isAuthenticated, isLoading } = useAuth();

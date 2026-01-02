@@ -41,18 +41,13 @@ export default function MemberBookingsPage() {
       setCancelError(null);
       setSuccessMessage(null);
       
-      // Optimistic update: remove booking from list immediately
-      setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId));
-      
       await cancelBooking(bookingId);
       setSuccessMessage('Booking cancelled successfully');
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
-      // Reload to get accurate data
+      // Reload to get accurate data from server
       loadBookings();
     } catch (err: any) {
-      // Revert optimistic update on error
-      loadBookings();
       setCancelError(err.message || 'Failed to cancel booking');
     }
   };

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getUserOrders } from '@/lib/api';
 import type { OrderResponse } from '@/lib/api';
 
-export default function StoreOrdersPage() {
+function StoreOrdersPageContent() {
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +143,21 @@ export default function StoreOrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StoreOrdersPage() {
+  return (
+    <Suspense fallback={
+      <div>
+        <PageHeader title="My Orders" />
+        <div className="text-center py-12" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+          Loading...
+        </div>
+      </div>
+    }>
+      <StoreOrdersPageContent />
+    </Suspense>
   );
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CalendarView } from '@/components/ui/CalendarView';
@@ -12,7 +12,7 @@ import { getSchedule } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { ScheduleResponse } from '@/lib/api';
 
-export default function SchedulePage() {
+function SchedulePageContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -21,13 +21,33 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
-  // Initialize filters from URL params or defaults
-  const [filters, setFilters] = useState({
-    from: searchParams.get('from') || '',
-    to: searchParams.get('to') || '',
-    classTypeId: '',
-    instructorId: '',
-  });
+  // Initialize filters from URL params with defaults (combined to avoid race conditions)
+  const getInitialFilters = () => {
+    const urlFrom = searchParams.get('from');
+    const urlTo = searchParams.get('to');
+    
+    // If no URL params, set defaults to current month
+    if (!urlFrom || !urlTo) {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return {
+        from: urlFrom || firstDay.toISOString().split('T')[0],
+        to: urlTo || lastDay.toISOString().split('T')[0],
+        classTypeId: '',
+        instructorId: '',
+      };
+    }
+    
+    return {
+      from: urlFrom,
+      to: urlTo,
+      classTypeId: '',
+      instructorId: '',
+    };
+  };
+
+  const [filters, setFilters] = useState(getInitialFilters());
   const [selectedClassTypes, setSelectedClassTypes] = useState<string[]>(
     searchParams.get('classTypes')?.split(',').filter(Boolean) || []
   );
@@ -38,9 +58,9 @@ export default function SchedulePage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      router.push(`/login?redirect=${encodeURIComponent('/schedule')}`);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Extract unique class types and instructors from sessions
   const classTypes = useMemo(() => {
@@ -69,21 +89,6 @@ export default function SchedulePage() {
     return Array.from(unique.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [sessions]);
 
-  // Set default date range to current month if not in URL
-  useEffect(() => {
-    if (!filters.from || !filters.to) {
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      
-      setFilters(prev => ({
-        ...prev,
-        from: prev.from || firstDay.toISOString().split('T')[0],
-        to: prev.to || lastDay.toISOString().split('T')[0],
-      }));
-    }
-  }, []);
-
   // Update URL when filters change (debounced to avoid too many updates)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -93,15 +98,15 @@ export default function SchedulePage() {
       if (selectedClassTypes.length > 0) params.set('classTypes', selectedClassTypes.join(','));
       if (selectedInstructors.length > 0) params.set('instructors', selectedInstructors.join(','));
       
-      const newUrl = params.toString() ? `?${params.toString()}` : '';
-      const currentUrl = window.location.search;
-      if (currentUrl !== newUrl) {
-        router.replace(`/schedule${newUrl}`, { scroll: false });
+      const newSearch = params.toString();
+      const currentSearch = searchParams.toString();
+      if (currentSearch !== newSearch) {
+        router.replace(`/schedule${newSearch ? `?${newSearch}` : ''}`, { scroll: false });
       }
     }, 300); // Debounce URL updates
 
     return () => clearTimeout(timeoutId);
-  }, [filters.from, filters.to, selectedClassTypes, selectedInstructors, router]);
+  }, [filters.from, filters.to, selectedClassTypes, selectedInstructors, router, searchParams]);
 
   // Update filters when selections change
   useEffect(() => {
@@ -174,7 +179,7 @@ export default function SchedulePage() {
   const handleBook = async (sessionId: string) => {
     // This should never happen since page requires auth, but keep as safety check
     if (!isAuthenticated) {
-      window.location.href = `/login?redirect=/schedule`;
+      router.push('/login?redirect=/schedule');
       return;
     }
 
@@ -182,21 +187,10 @@ export default function SchedulePage() {
       setBookingError(null);
       const { createBooking } = await import('@/lib/api');
       
-      // Optimistic update: decrease remaining capacity immediately
-      setSessions(prevSessions => 
-        prevSessions.map(session => 
-          session.id === sessionId
-            ? { ...session, remainingCapacity: Math.max(0, session.remainingCapacity - 1), confirmedCount: session.confirmedCount + 1 }
-            : session
-        )
-      );
-      
       await createBooking(sessionId);
       // Reload schedule to get accurate data from server
       await loadSchedule();
     } catch (err: any) {
-      // Revert optimistic update on error
-      await loadSchedule();
       setBookingError(err.message || 'Failed to book class');
       throw err; // Re-throw so modal can handle it
     }
@@ -380,6 +374,20 @@ export default function SchedulePage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function SchedulePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+          Loading...
+        </div>
+      </div>
+    }>
+      <SchedulePageContent />
+    </Suspense>
   );
 }
 

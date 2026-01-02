@@ -16,9 +16,6 @@ import {
   HeartIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  TrophyIcon,
-  BuildingStorefrontIcon,
-  PhotoIcon
 } from '@heroicons/react/24/solid';
 
 export default function Home() {
@@ -36,8 +33,8 @@ export default function Home() {
           backgroundSize: 'cover',
           backgroundPosition: '50% 50%',
           backgroundRepeat: 'no-repeat',
-          paddingTop: '5px',
-          paddingBottom: '5px',
+          paddingTop: 'var(--spacing-section-default)',
+          paddingBottom: 'var(--spacing-section-default)',
           paddingLeft: '0px',
           paddingRight: '0px',
         }}
@@ -142,11 +139,11 @@ export default function Home() {
           <h2 className="font-bold mb-8 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
             Why train here
           </h2>
-          <p className="mb-12 text-center max-w-3xl mx-auto" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-            It's a gym. You train. You leave stronger. No mirrors. No hype. Just people working out together.
+          <p className="mb-16 text-center max-w-3xl mx-auto" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+            It's a gym. You train. You leave stronger. No mirrors. No hype. Just people working out together. If you don't like typical gyms, this might work for you.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
               <h3 className="font-bold mb-4 uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-accent-primary)', fontSize: 'var(--font-size-h2)', lineHeight: 'var(--line-height-h2)' }}>
                 What to expect
@@ -251,12 +248,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Results Guarantee Section */}
-      <section className="text-center" style={{ backgroundColor: 'var(--color-bg-light-green)', paddingTop: '30px', paddingBottom: '25px', paddingLeft: '0px', paddingRight: '0px' }}>
+      {/* Mid-Page CTA Section */}
+      <section className="text-center" style={{ backgroundColor: 'var(--color-bg-light-green)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
         <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
-          <h2 className="font-bold mb-8 uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
+          <h2 className="font-bold mb-6 uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
             No promises. Just work.
           </h2>
+          <p className="mb-8 max-w-2xl mx-auto" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+            Come train. See if it works for you. If you show up and do the work, you'll get stronger. That's all we can promise.
+          </p>
           <Link href={isAuthenticated ? '/schedule' : '/login'}>
             <ActionButton className="text-lg px-8 py-4">
               Book a Session
@@ -266,7 +266,7 @@ export default function Home() {
       </section>
 
       {/* Testimonials Section */}
-      <section style={{ paddingTop: '22px', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
+      <section style={{ paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
         <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
           <h2 className="font-bold mb-12 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
             What people say
@@ -423,92 +423,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Achievements Section */}
-      <section style={{ backgroundColor: 'var(--color-bg-light-gray)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
-        <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
-          <h2 className="font-bold mb-12 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
-            Things that happened
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={80} className="mb-4">
-                <TrophyIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <p style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Someone lost 60 pounds. They kept showing up. That's what it takes.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={80} className="mb-4">
-                <TrophyIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <p style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                First member had sciatica. After six months, it got better. They kept coming.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={80} className="mb-4">
-                <TrophyIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <p style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Raised some money for a local charity. Members chipped in. That was nice.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={80} className="mb-4">
-                <TrophyIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <p style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Had a Christmas party. People came. It was fine.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={80} className="mb-4">
-                <TrophyIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <p style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Someone got stronger. Won a golf tournament. Probably helped.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Gym Photos Section - Inside Average Joe's Gym */}
-      <section style={{ backgroundColor: 'var(--color-bg-dark-section)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
-        <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
-          <h2 className="font-bold mb-12 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-light)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
-            The gym
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={120}>
-                <PhotoIcon style={{ color: 'var(--color-text-muted)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-            </div>
-            <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={120}>
-                <PhotoIcon style={{ color: 'var(--color-text-muted)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-            </div>
-            <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={120}>
-                <PhotoIcon style={{ color: 'var(--color-text-muted)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Who You Are Section */}
       <section style={{ backgroundColor: 'var(--color-bg-light-gray)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
         <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <Image src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbKSagQoVyvRnNJfs4kZRJQDk-gb5V8UHUCA&s" alt="Average Joe's Gym" width={300} height={100} className="mb-8" style={{ width: 'auto', height: 'auto' }} />
-              <h2 className="font-bold mb-8" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
+              <h2 className="font-bold mb-8 uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
                 Is this for you
               </h2>
+              <p className="mb-8" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+                If you don't like typical gyms, this might work. It's still a gym. Just different.
+              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start gap-3">
                   <IconWrapper size={40}>
@@ -572,35 +498,27 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="w-full aspect-square flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={200}>
-                <BuildingStorefrontIcon style={{ color: 'var(--color-text-muted)', width: '100%', height: '100%' }} />
-              </IconWrapper>
+            <div>
+              <h3 className="font-bold mb-6 uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h2)', lineHeight: 'var(--line-height-h2)' }}>
+                Are you a good fit?
+              </h3>
+              <p className="mb-6" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+                We're a small gym. We know everyone's name. We care about results, not numbers. If you're looking for something different from a typical gym, we might be a good fit.
+              </p>
+              <p className="mb-6" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
+                It's not for everyone. But if you're willing to show up and do the work, we'll help you get stronger.
+              </p>
+              <Link href={isAuthenticated ? '/schedule' : '/login'}>
+                <ActionButton className="text-lg px-8 py-4">
+                  Book a Session
+                </ActionButton>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Get Results Section */}
-      <section style={{ backgroundColor: 'var(--color-bg-dark-section)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
-        <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
-          <h2 className="font-bold mb-8 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-light)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
-            Try it
-          </h2>
-          <p className="mb-8 text-center" style={{ color: 'var(--color-text-light)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-            Come train. See if it works for you. That's all.
-          </p>
-          <div className="text-center">
-            <Link href={isAuthenticated ? '/schedule' : '/login'}>
-              <ActionButton className="text-lg px-8 py-4">
-                Book a Session
-              </ActionButton>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* We Promise Section */}
+      {/* Final CTA Section */}
       <section style={{ backgroundColor: 'var(--color-bg-light-gray-alt)', paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
         <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
           <h2 className="font-bold mb-8 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)', fontSize: 'var(--font-size-h1)', lineHeight: 'var(--line-height-h1)' }}>
@@ -612,7 +530,7 @@ export default function Home() {
           <div className="text-center">
             <Link href={isAuthenticated ? '/schedule' : '/login'}>
               <ActionButton className="text-lg px-8 py-4">
-                Train With Us
+                Book a Session
               </ActionButton>
             </Link>
           </div>

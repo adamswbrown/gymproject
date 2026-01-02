@@ -47,6 +47,11 @@ export default function AdminSessionsPage() {
     registrationOpens: undefined,
     registrationCloses: undefined,
   });
+  const [validationErrors, setValidationErrors] = useState<{
+    endsAt?: string;
+    registrationCloses?: string;
+    capacity?: string;
+  }>({});
 
   useEffect(() => {
     if (hasAccess) {
@@ -75,8 +80,31 @@ export default function AdminSessionsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    const errors: typeof validationErrors = {};
+    if (formData.startsAt && formData.endsAt && formData.endsAt <= formData.startsAt) {
+      errors.endsAt = 'End time must be after start time';
+    }
+    if (formData.registrationOpens && formData.registrationCloses && formData.registrationCloses <= formData.registrationOpens) {
+      errors.registrationCloses = 'Registration close time must be after open time';
+    }
+    if (formData.startsAt && formData.registrationCloses && formData.registrationCloses >= formData.startsAt) {
+      errors.registrationCloses = 'Registration must close before the session starts';
+    }
+    if (formData.capacity < 1 || formData.capacity > 1000) {
+      errors.capacity = formData.capacity < 1 ? 'Capacity must be at least 1' : 'Capacity cannot exceed 1000';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setError('Please fix validation errors before submitting');
+      return;
+    }
+    
     try {
       setError(null);
+      setValidationErrors({});
       await createSession(formData);
       setIsCreateModalOpen(false);
       setFormData({
@@ -99,8 +127,31 @@ export default function AdminSessionsPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingId) return;
+    
+    // Validate form before submission
+    const errors: typeof validationErrors = {};
+    if (formData.startsAt && formData.endsAt && formData.endsAt <= formData.startsAt) {
+      errors.endsAt = 'End time must be after start time';
+    }
+    if (formData.registrationOpens && formData.registrationCloses && formData.registrationCloses <= formData.registrationOpens) {
+      errors.registrationCloses = 'Registration close time must be after open time';
+    }
+    if (formData.startsAt && formData.registrationCloses && formData.registrationCloses >= formData.startsAt) {
+      errors.registrationCloses = 'Registration must close before the session starts';
+    }
+    if (formData.capacity < 1 || formData.capacity > 1000) {
+      errors.capacity = formData.capacity < 1 ? 'Capacity must be at least 1' : 'Capacity cannot exceed 1000';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setError('Please fix validation errors before submitting');
+      return;
+    }
+    
     try {
       setError(null);
+      setValidationErrors({});
       await updateSession(editingId, formData);
       setEditingId(null);
       setFormData({
@@ -141,6 +192,7 @@ export default function AdminSessionsPage() {
 
   const startEdit = (session: Session) => {
     setEditingId(session.id);
+    setValidationErrors({});
     setFormData({
       classTypeId: session.classTypeId,
       instructorId: session.instructorId,
@@ -156,6 +208,7 @@ export default function AdminSessionsPage() {
 
   const cancelEdit = () => {
     setEditingId(null);
+    setValidationErrors({});
     setFormData({
       classTypeId: '',
       instructorId: '',
@@ -170,6 +223,7 @@ export default function AdminSessionsPage() {
   };
 
   const openCreateModal = () => {
+    setValidationErrors({});
     setFormData({
       classTypeId: '',
       instructorId: '',
@@ -355,22 +409,38 @@ export default function AdminSessionsPage() {
               const newEndsAt = e.target.value;
               // Validate that end time is after start time
               if (formData.startsAt && newEndsAt && newEndsAt <= formData.startsAt) {
-                // Don't update if invalid, or set error
+                setValidationErrors(prev => ({
+                  ...prev,
+                  endsAt: 'End time must be after start time',
+                }));
                 return;
               }
+              setValidationErrors(prev => {
+                const { endsAt, ...rest } = prev;
+                return rest;
+              });
               setFormData({ ...formData, endsAt: newEndsAt });
             }}
             min={formData.startsAt || undefined}
             className="w-full px-4 py-2 focus:outline-none"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border-subtle)',
+              border: `1px solid ${validationErrors.endsAt ? 'var(--color-accent-primary)' : 'var(--color-border-subtle)'}`,
               color: 'var(--color-text-primary)',
               fontFamily: 'var(--font-body)',
             }}
             onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+            onBlur={(e) => {
+              if (!validationErrors.endsAt) {
+                e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+              }
+            }}
           />
+          {validationErrors.endsAt && (
+            <div className="mt-1 text-sm" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+              {validationErrors.endsAt}
+            </div>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -478,12 +548,24 @@ export default function AdminSessionsPage() {
               const newCloses = e.target.value || undefined;
               // Validate that registration closes is after opens (if both set)
               if (formData.registrationOpens && newCloses && newCloses <= formData.registrationOpens) {
-                return; // Don't update if invalid
+                setValidationErrors(prev => ({
+                  ...prev,
+                  registrationCloses: 'Registration close time must be after open time',
+                }));
+                return;
               }
-              // Validate that registration closes is before session starts
+              // Validate that registration closes is before session starts (not at or after)
               if (formData.startsAt && newCloses && newCloses >= formData.startsAt) {
-                return; // Don't update if invalid
+                setValidationErrors(prev => ({
+                  ...prev,
+                  registrationCloses: 'Registration must close before the session starts',
+                }));
+                return;
               }
+              setValidationErrors(prev => {
+                const { registrationCloses, ...rest } = prev;
+                return rest;
+              });
               setFormData({ ...formData, registrationCloses: newCloses });
             }}
             min={formData.registrationOpens || formData.startsAt || undefined}
@@ -491,13 +573,25 @@ export default function AdminSessionsPage() {
             className="w-full px-4 py-2 focus:outline-none"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border-subtle)',
+              border: `1px solid ${validationErrors.registrationCloses ? 'var(--color-accent-primary)' : 'var(--color-border-subtle)'}`,
               color: 'var(--color-text-primary)',
               fontFamily: 'var(--font-body)',
             }}
             onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+            onBlur={(e) => {
+              if (!validationErrors.registrationCloses) {
+                e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+              }
+            }}
           />
+          {validationErrors.registrationCloses && (
+            <div className="mt-1 text-sm" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+              {validationErrors.registrationCloses}
+            </div>
+          )}
+          <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+            Registration must close before the session starts
+          </p>
         </div>
       </div>
       <div>
@@ -535,7 +629,12 @@ export default function AdminSessionsPage() {
         }}>
           Cancel
         </ActionButton>
-        <ActionButton type="submit">{submitLabel}</ActionButton>
+        <ActionButton 
+          type="submit"
+          disabled={Object.keys(validationErrors).length > 0}
+        >
+          {submitLabel}
+        </ActionButton>
       </ModalFooter>
     </form>
   );

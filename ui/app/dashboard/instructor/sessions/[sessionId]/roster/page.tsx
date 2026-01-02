@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Section } from '@/components/ui/Section';
+import { DismissibleError } from '@/components/ui/DismissibleError';
 import { getSessionRoster } from '@/lib/api';
 import type { RosterResponse } from '@/lib/api';
 
@@ -78,17 +79,10 @@ export default function RosterPage() {
 
       {/* Error State */}
       {error && (
-        <div
-          className="mb-6 p-4"
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-accent-primary)',
-            color: 'var(--color-accent-primary)',
-            fontFamily: 'var(--font-body)',
-          }}
-        >
-          {error}
-        </div>
+        <DismissibleError
+          message={error}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       {/* Loading State */}

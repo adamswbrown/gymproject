@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { DismissibleError } from '@/components/ui/DismissibleError';
 import { getAllRegistrations, getClassRegistrations, getCourseRegistrations, exportCalendar } from '@/lib/api';
 import type { RegistrationResponse } from '@/lib/api';
 
@@ -10,6 +11,7 @@ export default function MemberRegistrationsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'classes' | 'courses'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRegistrations();
@@ -37,6 +39,7 @@ export default function MemberRegistrationsPage() {
 
   const handleCalendarExport = async () => {
     try {
+      setExportError(null);
       const blob = await exportCalendar();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -47,7 +50,7 @@ export default function MemberRegistrationsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err: any) {
-      alert('Failed to export calendar: ' + err.message);
+      setExportError('Failed to export calendar: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -90,17 +93,17 @@ export default function MemberRegistrationsPage() {
       </div>
 
       {error && (
-        <div
-          className="mb-6 p-4"
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-accent-primary)',
-            color: 'var(--color-accent-primary)',
-            fontFamily: 'var(--font-body)',
-          }}
-        >
-          {error}
-        </div>
+        <DismissibleError
+          message={error}
+          onDismiss={() => setError(null)}
+        />
+      )}
+
+      {exportError && (
+        <DismissibleError
+          message={exportError}
+          onDismiss={() => setExportError(null)}
+        />
       )}
 
       {/* Tabs */}
