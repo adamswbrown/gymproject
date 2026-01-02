@@ -29,4 +29,3 @@ npm run dev
 
 - **Backend**: NestJS, Prisma, PostgreSQL
 - **Frontend**: Next.js, React, TypeScript, Tailwind CSS
-
