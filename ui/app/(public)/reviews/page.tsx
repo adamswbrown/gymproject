@@ -1,7 +1,5 @@
 'use client';
 
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
 import { ActionButton } from '@/components/ui/ActionButton';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,16 +43,14 @@ export default function ReviewsPage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-      <Navbar />
-      
-      <main className="flex-1" style={{ paddingTop: 'var(--spacing-section-default)', paddingBottom: 'var(--spacing-section-default)', paddingLeft: '0px', paddingRight: '0px' }}>
-        <div className="mx-auto px-4" style={{ maxWidth: 'var(--container-max-width)' }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-12 text-center uppercase" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-dark)' }}>
+    <section className="py-10 sm:py-14">
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="space-y-6">
+          <h1 className="font-oswald uppercase font-bold text-4xl sm:text-5xl text-center" style={{ color: 'var(--color-text-dark)' }}>
             What people say
           </h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
               <div 
                 key={index}
@@ -64,10 +60,10 @@ export default function ReviewsPage() {
                   border: '1px solid var(--color-border-subtle)' 
                 }}
               >
-                <p className="mb-4 italic" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>
+                <p className="mb-4 italic font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
                   "{testimonial.text}"
                 </p>
-                <p className="font-semibold" style={{ color: 'var(--color-text-dark)', fontFamily: 'var(--font-body)' }}>
+                <p className="font-semibold font-inter text-base leading-7" style={{ color: 'var(--color-text-dark)' }}>
                   {testimonial.name}
                 </p>
               </div>
@@ -76,16 +72,13 @@ export default function ReviewsPage() {
 
           <div className="text-center">
             <Link href={isAuthenticated ? '/schedule' : '/login'}>
-              <ActionButton className="text-lg px-8 py-4">
+              <ActionButton className="px-4 py-2 font-oswald uppercase">
                 Book a Session
               </ActionButton>
             </Link>
           </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </section>
   );
 }
-

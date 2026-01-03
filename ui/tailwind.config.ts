@@ -24,6 +24,8 @@ export default {
       fontFamily: {
         heading: ["system-ui", "-apple-system", "sans-serif"],
         body: ["system-ui", "-apple-system", "sans-serif"],
+        oswald: ["system-ui", "-apple-system", "sans-serif"],
+        inter: ["system-ui", "-apple-system", "sans-serif"],
       },
       borderRadius: {
         none: "0px",
