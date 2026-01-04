@@ -44,9 +44,9 @@
   --color-button-secondary-text: #FFFFFF;
   
   /* Spacing */
-  --spacing-section-default: 32px;
+  --spacing-section-default: 48px;
   --spacing-section-hero: 8px;
-  --spacing-container-horizontal: 0px;
+  --spacing-container-horizontal: 1rem;
   
   /* Navbar */
   --navbar-height: 80px;
@@ -56,6 +56,10 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {

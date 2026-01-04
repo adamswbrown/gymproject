@@ -1,5 +1,6 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
+import './styles/bedimcode.css';
 
 export default function PublicLayout({
   children,
@@ -7,13 +8,13 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <>
       <Navbar />
-      <main className="flex-1">
+      <main className="main">
         {children}
       </main>
       <Footer />
-    </div>
+    </>
   );
 }
 

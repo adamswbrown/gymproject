@@ -1,475 +1,400 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { ActionButton } from '@/components/ui/ActionButton';
-import { TestimonialsCarousel } from '@/components/ui/TestimonialsCarousel';
-import { IconWrapper } from '@/components/ui/IconWrapper';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  CheckBadgeIcon, 
-  ClockIcon, 
-  CogIcon, 
-  UserGroupIcon, 
-  HeartIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/solid';
+import { getPublicSchedule, createBooking } from '@/lib/api';
+import type { ScheduleResponse } from '@/lib/api';
 
 export default function Home() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  const [sessions, setSessions] = useState<ScheduleResponse[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSchedule = async () => {
+      try {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        const data = await getPublicSchedule({
+          from: firstDay.toISOString(),
+          to: lastDay.toISOString(),
+        });
+        setSessions(data);
+      } catch (err) {
+        console.error('Failed to load schedule:', err);
+      } finally {
+        setScheduleLoading(false);
+      }
+    };
+
+    loadSchedule();
+  }, []);
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const handleBook = async (sessionId: string) => {
+    if (!isAuthenticated) {
+      router.push('/login?redirect=/');
+      return;
+    }
+
+    if (user?.role !== 'MEMBER') {
+      router.push('/dashboard');
+      return;
+    }
+
+    try {
+      setBookingError(null);
+      await createBooking(sessionId);
+      // Reload schedule
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const data = await getPublicSchedule({
+        from: firstDay.toISOString(),
+        to: lastDay.toISOString(),
+      });
+      setSessions(data);
+    } catch (err: any) {
+      setBookingError(err.message || 'Failed to book class');
+    }
+  };
+
+  const handleGetStarted = () => {
+    if (!isAuthenticated) {
+      router.push('/register');
+    } else if (user?.role === 'MEMBER') {
+      const scheduleElement = document.getElementById('schedule');
+      if (scheduleElement) {
+        scheduleElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      router.push('/dashboard');
+    }
+  };
 
   return (
     <>
-      {/* Hero Section */}
-      <section className="relative py-10 sm:py-14" style={{
-        backgroundImage: 'url(/images/hero-background.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: '50% 50%',
-        backgroundRepeat: 'no-repeat',
-      }}>
-        {/* Dark Overlay */}
-        <div className="absolute inset-0" style={{ backgroundColor: 'var(--color-bg-hero-overlay)' }}></div>
-        
-        <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h1 className="font-oswald uppercase font-bold text-4xl sm:text-5xl" style={{ color: 'var(--color-text-hero)' }}>
-              Average Joe's Gym
-            </h1>
-            <p className="font-inter text-base leading-7 max-w-2xl" style={{ color: 'var(--color-text-hero)' }}>
-              We're not fancy. We just show up.
+      {/*==================== HOME ====================*/}
+      <section className="home section" id="home">
+        <div className="home__container container grid">
+          <div className="home__data">
+            <span className="home__subtitle">MAKE YOUR</span>
+            <h1 className="home__title">BODY SHAPE</h1>
+            <p className="home__description">
+              In here we will help you to shape and build your ideal 
+              body and live your life to the fullest.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Link href="/schedule">
-                <ActionButton className="px-4 py-2 font-oswald uppercase">
-                  See the Schedule
-                </ActionButton>
+            <a href="#schedule" className="button" onClick={(e) => {
+              e.preventDefault();
+              handleGetStarted();
+            }}>
+              Get Started
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/*==================== PROGRAM ====================*/}
+      <section className="program section" id="program">
+        <div className="container">
+          <div className="section__data">
+            <span className="section__subtitle">Our Program</span>
+            <div className="section__titles">
+              <h2 className="section__title-border">BUILD YOUR</h2>
+              <h2 className="section__title">BEST BODY</h2>
+            </div>
+          </div>
+
+          <div className="program__container grid">
+            <article className="program__card">
+              <div className="program__shape">
+                <img src="/images/program1.png" alt="" className="program__img" />
+              </div>
+              <h3 className="program__title">Flex Muscle</h3>
+              <p className="program__description">
+                Creating tension that's temporarily making the muscle 
+                fibers smaller or contracted.
+              </p>
+            </article>
+
+            <article className="program__card">
+              <div className="program__shape">
+                <img src="/images/program2.png" alt="" className="program__img" />
+              </div>
+              <h3 className="program__title">Cardio Exercise</h3>
+              <p className="program__description">
+                Exercise your heart rate up and keeps it 
+                up for a prolonged period of time.
+              </p>
+            </article>
+
+            <article className="program__card">
+              <div className="program__shape">
+                <img src="/images/program3.png" alt="" className="program__img" />
+              </div>
+              <h3 className="program__title">Basic Yoga</h3>
+              <p className="program__description">
+                Diaphragmatic this is the most common breathing 
+                technique you'll find in yoga.
+              </p>
+            </article>
+
+            <article className="program__card">
+              <div className="program__shape">
+                <img src="/images/program4.png" alt="" className="program__img" />
+              </div>
+              <h3 className="program__title">Weight Lifting</h3>
+              <p className="program__description">
+                Attempts a maximum weight single lift of a 
+                barbell loaded with weight plates.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/*==================== CHOOSE US ====================*/}
+      <section className="choose section" id="choose">
+        <div className="choose__overflow">
+          <div className="choose__container container grid">
+            <div className="choose__content">
+              <div className="section__data">
+                <span className="section__subtitle">Best Reason</span>
+                <div className="section__titles">
+                  <h2 className="section__title-border">WHY</h2>
+                  <h2 className="section__title">CHOOSE US ?</h2>
+                </div>
+              </div>
+
+              <p className="choose__description">
+                Choose your favorite class and start now. Remember the 
+                only bad workout is the one you didn't do.
+              </p>
+
+              <div className="choose__data">
+                <div className="choose__group">
+                  <h3 className="choose__number">200+</h3>
+                  <p className="choose__subtitle">Total Members</p>
+                </div>
+
+                <div className="choose__group">
+                  <h3 className="choose__number">50+</h3>
+                  <p className="choose__subtitle">Best trainers</p>
+                </div>
+
+                <div className="choose__group">
+                  <h3 className="choose__number">25+</h3>
+                  <p className="choose__subtitle">Programs</p>
+                </div>
+
+                <div className="choose__group">
+                  <h3 className="choose__number">100+</h3>
+                  <p className="choose__subtitle">Awards</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/*==================== PRICING ====================*/}
+      <section className="pricing section" id="pricing">
+        <div className="container">
+          <div className="section__data">
+            <span className="section__subtitle">Pricing</span>
+            <div className="section__titles">
+              <h2 className="section__title-border">OUR</h2>
+              <h2 className="section__title">SPECIAL PLAN</h2>
+            </div>
+          </div>
+
+          <div className="pricing__container grid">
+            <article className="pricing__card">
+              <div className="pricing__shape">
+                <img src="/images/pricing1.png" alt="" className="pricing__img" />
+              </div>
+              <h3 className="pricing__title">BASIC PACKAGE</h3>
+              <h3 className="pricing__number">$120</h3>
+              <ul className="pricing__list">
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>5 Days In A Week</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Sweatshirt</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Bottle of Protein</span>
+                </li>
+              </ul>
+              <Link href="/register" className="button pricing__button">
+                Purchase Now
               </Link>
-              {isAuthenticated && (
-                <Link href="/schedule">
-                  <ActionButton variant="secondary" className="px-4 py-2 font-oswald uppercase">
-                    Book a Session
-                  </ActionButton>
-                </Link>
-              )}
-            </div>
+            </article>
+
+            <article className="pricing__card">
+              <div className="pricing__shape">
+                <img src="/images/pricing2.png" alt="" className="pricing__img" />
+              </div>
+              <h3 className="pricing__title">PREMIUM PACKAGE</h3>
+              <h3 className="pricing__number">$240</h3>
+              <ul className="pricing__list">
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>5 Days In A Week</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Sweatshirt</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Bottle of Protein</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>Access to Videos</span>
+                </li>
+              </ul>
+              <Link href="/register" className="button pricing__button">
+                Purchase Now
+              </Link>
+            </article>
+
+            <article className="pricing__card">
+              <div className="pricing__shape">
+                <img src="/images/pricing3.png" alt="" className="pricing__img" />
+              </div>
+              <h3 className="pricing__title">DIAMOND PACKAGE</h3>
+              <h3 className="pricing__number">$420</h3>
+              <ul className="pricing__list">
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>5 Days In A Week</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Sweatshirt</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>01 Bottle of Protein</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>Access to Videos</span>
+                </li>
+                <li className="pricing__item">
+                  <i className="ri-checkbox-circle-line"></i>
+                  <span>Muscle Stretching</span>
+                </li>
+              </ul>
+              <Link href="/register" className="button pricing__button">
+                Purchase Now
+              </Link>
+            </article>
           </div>
         </div>
       </section>
 
-      {/* Why Join Section */}
-      <section className="py-10 sm:py-14">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl text-center" style={{ color: 'var(--color-text-dark)' }}>
-              Why train here
-            </h2>
-            <p className="font-inter text-base leading-7 text-center max-w-3xl mx-auto" style={{ color: 'var(--color-text-primary)' }}>
-              It's a gym. You train. You leave stronger. No mirrors. No hype. Just people working out together. If you don't like typical gyms, this might work for you.
+      {/*==================== SCHEDULE ====================*/}
+      <section className="section" id="schedule">
+        <div className="container">
+          <div className="section__data">
+            <span className="section__subtitle">Schedule</span>
+            <div className="section__titles">
+              <h2 className="section__title-border">CLASS</h2>
+              <h2 className="section__title">SCHEDULE</h2>
+            </div>
+          </div>
+
+          {bookingError && (
+            <div style={{ 
+              padding: '1rem', 
+              marginBottom: '2rem',
+              backgroundColor: 'hsla(0, 80%, 64%, 0.1)',
+              border: '2px solid hsl(0, 80%, 64%)',
+              color: 'hsl(0, 80%, 64%)',
+              textAlign: 'center'
+            }}>
+              {bookingError}
+            </div>
+          )}
+
+          {scheduleLoading ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-color-light)' }}>
+              Loading schedule...
             </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-accent-primary)' }}>
-                What to expect
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <CheckBadgeIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>If you do the work, you'll get better</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <CheckBadgeIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>No promises. No guarantees.</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <CheckBadgeIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>All fitness levels welcome</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-accent-primary)' }}>
-                How it works
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>25 minutes. Show up. Do the work.</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You might be sore. That's normal.</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>Everyone works at their own pace</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-accent-primary)' }}>
-                The people
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>Coaches who know what they're doing</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>Sometimes we do things outside the gym</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>It's still a gym. But people talk to each other.</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-accent-primary)' }}>
-                What you won't find
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ShieldCheckIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>No mirrors. We don't have them.</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ShieldCheckIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>No one's watching you. Everyone's working.</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ShieldCheckIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>No bodybuilders. Just regular people trying to get stronger.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Mid-Page CTA Section */}
-      <section className="text-center py-10 sm:py-14" style={{ backgroundColor: 'var(--color-bg-light-green)' }}>
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl" style={{ color: 'var(--color-text-dark)' }}>
-              No promises. Just work.
-            </h2>
-            <p className="font-inter text-base leading-7 max-w-2xl mx-auto" style={{ color: 'var(--color-text-primary)' }}>
-              Come train. See if it works for you. If you show up and do the work, you'll get stronger. That's all we can promise.
+          ) : sessions.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-color-light)' }}>
+              No sessions scheduled.
             </p>
-            <Link href={isAuthenticated ? '/schedule' : '/login'}>
-              <ActionButton className="px-4 py-2 font-oswald uppercase">
-                Book a Session
-              </ActionButton>
-            </Link>
-          </div>
-        </div>
-      </section>
+          ) : (
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+              {sessions.slice(0, 10).map((session) => (
+                <article 
+                  key={session.id}
+                  className="program__card"
+                  style={{ padding: '1.5rem' }}
+                >
+                  <h3 className="program__title">{session.classType.name}</h3>
+                  <p className="program__description" style={{ marginBottom: '1rem' }}>
+                    {formatDate(session.startsAt)} • {formatTime(session.startsAt)} - {formatTime(session.endsAt)}
+                  </p>
+                  {session.instructor.name && (
+                    <p className="program__description" style={{ marginBottom: '1rem' }}>
+                      Instructor: {session.instructor.name}
+                    </p>
+                  )}
+                  <p className="program__description" style={{ marginBottom: '1.5rem' }}>
+                    {session.remainingCapacity} spots available
+                  </p>
+                  {isAuthenticated && user?.role === 'MEMBER' ? (
+                    <button
+                      className="button"
+                      onClick={() => handleBook(session.id)}
+                      style={{ width: '100%' }}
+                    >
+                      Book Now
+                    </button>
+                  ) : user?.role === 'ADMIN' || user?.role === 'INSTRUCTOR' ? (
+                    <Link href="/dashboard" className="button" style={{ display: 'block', textAlign: 'center', width: '100%' }}>
+                      View Dashboard
+                    </Link>
+                  ) : (
+                    <Link href="/login" className="button" style={{ display: 'block', textAlign: 'center', width: '100%' }}>
+                      Log in to book
+                    </Link>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
 
-      {/* Testimonials Section */}
-      <section className="py-10 sm:py-14">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl text-center" style={{ color: 'var(--color-text-dark)' }}>
-              What people say
-            </h2>
-          <TestimonialsCarousel testimonials={[
-            {
-              name: 'Heather Stevenson',
-              text: "I've been coming here for 3 months. Sessions are short which works for my schedule. I'm stronger now. No more knee pain. The coaches know what they're doing. I keep showing up."
-            },
-            {
-              name: 'Stefanie Eisenstadt',
-              text: "My husband and I started when we weren't getting anywhere on our own. We did 3 months to see how it went. The structured sessions help. Other members are fine. We're both stronger now. We signed up for the year."
-            },
-            {
-              name: 'Dawn Miskelly',
-              text: "Been here 10 months. I hadn't exercised in years. Now I come every week. It helps. Sessions are short so I can fit them in. Coaches push you but not too hard. Members are decent people. If you're stuck, try it."
-            },
-            {
-              name: 'Niomi Brians',
-              text: "I've been here over a year. I stopped exercising during Covid. This got me back into it. Coaches know their stuff. They help with exercise and nutrition. I've met some people here. It works for me."
-            },
-            {
-              name: 'Jennifer Brehaut',
-              text: "I joined recently. Lost my confidence over the years. Needed somewhere to get back into it. This works. People are fine. Sessions are manageable. I can fit them in. I keep coming back."
-            },
-            {
-              name: 'Sarah Rankin',
-              text: "This is helping me get healthier. I'm not an exercise person. I only ever liked walking. But this works. I miss it if I don't go. Sessions are short but they work. The app makes booking easy. Coaches are decent. I fit in here."
-            },
-            {
-              name: 'Leighann Edgar',
-              text: "It's not a typical gym. No mirrors. No one flexing. Just regular people working out. Coaches are fine. There's a kids room which helps."
-            },
-            {
-              name: 'Alicia',
-              text: "I started in July. I was nervous. Coach introduced herself. People were fine. After the session my legs were done but I felt okay. It's still tough 8 weeks in but I keep showing up. People are decent."
-            }
-          ]} />
-          </div>
-        </div>
-      </section>
-
-      {/* What We Offer Section */}
-      <section className="py-10 sm:py-14" style={{ backgroundColor: 'var(--color-bg-very-light-green)' }}>
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl text-center" style={{ color: 'var(--color-text-dark)' }}>
-              What we have
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                25 minute sessions
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Sessions are 25 minutes. You can fit it in. That's the point.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                Small groups
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Small groups. Less intimidating. More manageable.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <SparklesIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                Coach tells you what to do
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Coach runs the session. You follow along. No thinking required.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <HeartIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                People show up
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Same people. Same time. You get to know them. That's it.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <HeartIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                Heart rate monitors
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                We track your heart rate. Helps us know if you're working hard enough.
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border-subtle)' }}>
-              <IconWrapper size={100} className="mb-4">
-                <CogIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-              </IconWrapper>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-4" style={{ color: 'var(--color-text-dark)' }}>
-                Basic equipment
-              </h3>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Machines adjust to how hard you push. Everyone uses the same equipment. Works for everyone.
-              </p>
-            </div>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Coaches Section */}
-      <section className="py-10 sm:py-14">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl text-center" style={{ color: 'var(--color-text-dark)' }}>
-              The coaches
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <Image src="/images/gav.png" alt="Coach Gav" width={200} height={200} className="mb-4" />
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-2" style={{ color: 'var(--color-text-dark)' }}>
-                Coach Gav
-              </h3>
-              <p className="mb-4 font-semibold font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Owner and Head Coach
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <Image src="/images/conor.png" alt="Coach Conor" width={200} height={200} className="mb-4" />
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-2" style={{ color: 'var(--color-text-dark)' }}>
-                Coach Conor
-              </h3>
-              <p className="mb-4 font-semibold font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Gym Manager
-              </p>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-subtle)' }}>
-              <Image src="/images/michelle.png" alt="Coach Michelle" width={200} height={200} className="mb-4" />
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-2" style={{ color: 'var(--color-text-dark)' }}>
-                Coach Michelle
-              </h3>
-              <p className="mb-4 font-semibold font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                Coach
-              </p>
-            </div>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Who You Are Section */}
-      <section className="py-10 sm:py-14" style={{ backgroundColor: 'var(--color-bg-light-gray)' }}>
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-            <div>
-              <Image src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbKSagQoVyvRnNJfs4kZRJQDk-gb5V8UHUCA&s" alt="Average Joe's Gym" width={300} height={100} className="mb-8" style={{ width: 'auto', height: 'auto' }} />
-              <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl" style={{ color: 'var(--color-text-dark)' }}>
-                Is this for you
-              </h2>
-              <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                If you don't like typical gyms, this might work. It's still a gym. Just different.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You don't like gyms</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <CheckBadgeIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You want to get stronger</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ShieldCheckIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You hate mirrors and egos</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <HeartIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You want to train with other people</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You're busy</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <ClockIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>25 minutes works for you</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <UserGroupIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You don't want to train alone</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <HeartIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You want to train with regular people</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <SparklesIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You don't know what to do</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconWrapper size={40}>
-                    <SparklesIcon style={{ color: 'var(--color-accent-primary)', width: '100%', height: '100%' }} />
-                  </IconWrapper>
-                  <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>You want someone to tell you what to do</p>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-oswald uppercase font-bold text-2xl sm:text-3xl mb-6" style={{ color: 'var(--color-text-dark)' }}>
-                Are you a good fit?
-              </h3>
-              <p className="mb-6 font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                We're a small gym. We know everyone's name. We care about results, not numbers. If you're looking for something different from a typical gym, we might be a good fit.
-              </p>
-              <p className="mb-6 font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-                It's not for everyone. But if you're willing to show up and do the work, we'll help you get stronger.
-              </p>
-              <Link href={isAuthenticated ? '/schedule' : '/login'}>
-                <ActionButton className="px-4 py-2 font-oswald uppercase">
-                  Book a Session
-                </ActionButton>
+          {sessions.length > 10 && (
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <Link href="/schedule" className="button">
+                View Full Schedule
               </Link>
             </div>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA Section */}
-      <section className="py-10 sm:py-14 text-center" style={{ backgroundColor: 'var(--color-bg-light-gray-alt)' }}>
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="space-y-6">
-            <h2 className="font-oswald uppercase font-bold text-2xl sm:text-3xl" style={{ color: 'var(--color-text-dark)' }}>
-              That's it
-            </h2>
-            <p className="font-inter text-base leading-7" style={{ color: 'var(--color-text-primary)' }}>
-              Show up. Train. Leave stronger. Repeat.
-            </p>
-            <Link href={isAuthenticated ? '/schedule' : '/login'}>
-              <ActionButton className="px-4 py-2 font-oswald uppercase">
-                Book a Session
-              </ActionButton>
-            </Link>
-          </div>
+          )}
         </div>
       </section>
     </>

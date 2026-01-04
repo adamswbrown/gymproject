@@ -2,8 +2,6 @@
 
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { ActionButton } from '@/components/ui/ActionButton';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,10 +22,7 @@ function LoginForm() {
 
     try {
       const response = await login(email, password);
-      // Store token in cookie for middleware (already done in login function)
-      // Use router.push instead of window.location for better Next.js integration
       const redirect = searchParams.get('redirect') || '/dashboard';
-      // Small delay to ensure cookie is set
       await new Promise(resolve => setTimeout(resolve, 150));
       window.location.href = redirect;
     } catch (err: any) {
@@ -38,109 +33,120 @@ function LoginForm() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--body-color)' }}>
+        <div style={{ color: 'var(--text-color-light)' }}>Loading...</div>
       </div>
     );
   }
 
-  // If already authenticated, show a message but don't auto-redirect
-  // The middleware or dashboard will handle the redirect
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>You are already logged in. Redirecting...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--body-color)' }}>
+        <div style={{ color: 'var(--text-color-light)' }}>You are already logged in. Redirecting...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <>
       <Navbar />
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <PageHeader title="Log In" />
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="block font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Email
-              </label>
-              <input
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 focus:outline-none"
-                style={{ 
-                  backgroundColor: 'var(--color-bg-secondary)', 
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-primary)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 'var(--font-size-body)',
-                  lineHeight: 'var(--line-height-body)',
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-              />
+      <main className="main">
+        <section className="section" style={{ paddingTop: '8rem' }}>
+          <div className="container">
+            <div className="section__data">
+              <h2 className="section__title">Log In</h2>
             </div>
 
-            <div>
-              <label className="block font-medium mb-2" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 focus:outline-none"
-                style={{ 
-                  backgroundColor: 'var(--color-bg-secondary)', 
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-primary)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 'var(--font-size-body)',
-                  lineHeight: 'var(--line-height-body)',
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
-              />
-            </div>
+            <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+              <form onSubmit={handleSubmit} style={{ display: 'grid', rowGap: '1.5rem' }}>
+                {error && (
+                  <div style={{ 
+                    padding: '1rem', 
+                    backgroundColor: 'hsla(0, 80%, 64%, 0.1)',
+                    border: '2px solid hsl(0, 80%, 64%)',
+                    color: 'hsl(0, 80%, 64%)',
+                    textAlign: 'center'
+                  }}>
+                    {error}
+                  </div>
+                )}
 
-            <ActionButton
-              type="submit"
-              disabled={submitting}
-              className="w-full"
-            >
-              {submitting ? 'Logging In...' : 'Log In'}
-            </ActionButton>
+                <div style={{ position: 'relative', border: '2px solid var(--first-color-light)' }}>
+                  <input
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="Email"
+                    style={{ 
+                      width: '100%',
+                      background: 'transparent',
+                      padding: '1.5rem',
+                      paddingRight: '4rem',
+                      color: 'var(--title-color)',
+                      fontSize: 'var(--h3-font-size)',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                  />
+                  <label style={{ position: 'absolute', right: '1.5rem', top: '1.25rem', color: 'var(--title-color)' }}>
+                    <i className="ri-mail-line"></i>
+                  </label>
+                </div>
 
-            <div className="text-center" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>
-              Don't have an account?{' '}
-              <Link href="/register" style={{ color: 'var(--color-accent-primary)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-hover)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-accent-primary)'}>
-                Register
-              </Link>
+                <div style={{ position: 'relative', border: '2px solid var(--first-color-light)' }}>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Password"
+                    style={{ 
+                      width: '100%',
+                      background: 'transparent',
+                      padding: '1.5rem',
+                      paddingRight: '4rem',
+                      color: 'var(--title-color)',
+                      fontSize: 'var(--h3-font-size)',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                  />
+                  <label style={{ position: 'absolute', right: '1.5rem', top: '1.25rem', color: 'var(--title-color)' }}>
+                    <i className="ri-lock-line"></i>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="button"
+                  style={{ marginTop: '1.5rem', width: '100%' }}
+                >
+                  {submitting ? 'Logging In...' : 'Log In'}
+                </button>
+
+                <div style={{ textAlign: 'center', color: 'var(--text-color-light)' }}>
+                  Don't have an account?{' '}
+                  <Link href="/register" style={{ color: 'var(--first-color)' }}>
+                    Register
+                  </Link>
+                </div>
+              </form>
             </div>
-          </form>
-        </div>
+          </div>
+        </section>
       </main>
       <Footer />
-    </div>
+    </>
   );
 }
 
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--body-color)' }}>
+        <div style={{ color: 'var(--text-color-light)' }}>Loading...</div>
       </div>
     }>
       <LoginForm />

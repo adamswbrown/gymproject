@@ -463,20 +463,45 @@ export default function AdminSessionsPage() {
             onChange={(e) => {
               const value = parseInt(e.target.value) || 0;
               // Validate capacity is positive and reasonable
-              if (value < 1) return;
-              if (value > 1000) return; // Reasonable max
+              if (value < 1) {
+                setValidationErrors(prev => ({
+                  ...prev,
+                  capacity: 'Capacity must be at least 1',
+                }));
+                return;
+              }
+              if (value > 1000) {
+                setValidationErrors(prev => ({
+                  ...prev,
+                  capacity: 'Capacity cannot exceed 1000',
+                }));
+                return;
+              }
+              setValidationErrors(prev => {
+                const { capacity, ...rest } = prev;
+                return rest;
+              });
               setFormData({ ...formData, capacity: value });
             }}
             className="w-full px-4 py-2 focus:outline-none"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border-subtle)',
+              border: `1px solid ${validationErrors.capacity ? 'var(--color-accent-primary)' : 'var(--color-border-subtle)'}`,
               color: 'var(--color-text-primary)',
               fontFamily: 'var(--font-body)',
             }}
             onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-accent-primary)'}
-            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-subtle)'}
+            onBlur={(e) => {
+              if (!validationErrors.capacity) {
+                e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+              }
+            }}
           />
+          {validationErrors.capacity && (
+            <div className="mt-1 text-sm" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+              {validationErrors.capacity}
+            </div>
+          )}
         </div>
         <div>
           <label
